@@ -19,7 +19,6 @@ import com.bingmerfest.wordle.engine.Turn;
 import com.bingmerfest.wordle.persistence.GameEntity;
 import com.bingmerfest.wordle.persistence.GameMode;
 import com.bingmerfest.wordle.persistence.GameRepository;
-import com.bingmerfest.wordle.persistence.SolverConfigEntity;
 import com.bingmerfest.wordle.persistence.SolverConfigRepository;
 
 /**
@@ -47,10 +46,6 @@ public class SimulatorController {
 		return "simulator";
 	}
 
-	public record TurnDto(int turnNumber, String word, String pattern, double expectedBits,
-			double bitsGained, int candidatesBefore, int candidatesAfter, List<String> remainingSample) {
-	}
-
 	public record SimGameDto(long gameId, String answer, boolean solved, int numGuesses, List<TurnDto> turns) {
 	}
 
@@ -63,31 +58,31 @@ public class SimulatorController {
 				: ThreadLocalRandom.current().nextInt(answers.size());
 		String answer = answers.get(pick);
 
-		EntropySolver.Game game = solver.newGame();
 		List<TurnDto> turns = new ArrayList<>();
+		GameResult result = selfPlay(solver, answer, turns, REMAINING_SAMPLE_LIMIT);
+
+		GameEntity saved = games.save(GameEntity.of(GameMode.SIMULATOR, result,
+				configs.getOrCreate("default", solver.config())));
+		return new SimGameDto(saved.getId(), answer, result.solved(), turns.size(), turns);
+	}
+
+	/**
+	 * Plays one full game against {@code answer}, filling {@code turnsOut}
+	 * with UI-ready turn DTOs. Shared with the daily AUTO mode.
+	 */
+	static GameResult selfPlay(EntropySolver solver, String answer, List<TurnDto> turnsOut, int sampleLimit) {
+		EntropySolver.Game game = solver.newGame();
 		boolean solved = false;
 		for (int t = 0; t < SolverConfig.MAX_GUESSES && !solved; t++) {
 			Suggestion suggestion = game.suggest();
 			int pattern = PatternService.compute(suggestion.word(), answer);
 			Turn turn = game.apply(suggestion.word(), pattern);
-			turns.add(new TurnDto(turn.turnNumber(), turn.guess(), turn.patternString(),
-					turn.expectedBits(),
-					turn.candidatesAfter() == 0 ? 0 : turn.bitsGained(),
-					turn.candidatesBefore(), turn.candidatesAfter(),
-					game.remainingWords(REMAINING_SAMPLE_LIMIT)));
+			turnsOut.add(TurnDto.of(turn, game.remainingWords(sampleLimit)));
 			solved = turn.isWin();
 			if (game.candidateCount() == 0) {
 				break;
 			}
 		}
-
-		GameResult result = new GameResult(answer, solved, game.history());
-		GameEntity saved = games.save(GameEntity.of(GameMode.SIMULATOR, result, defaultConfig()));
-		return new SimGameDto(saved.getId(), answer, solved, turns.size(), turns);
-	}
-
-	private SolverConfigEntity defaultConfig() {
-		return configs.findByName("default")
-				.orElseGet(() -> configs.save(SolverConfigEntity.of("default", solver.config())));
+		return new GameResult(answer, solved, game.history());
 	}
 }
