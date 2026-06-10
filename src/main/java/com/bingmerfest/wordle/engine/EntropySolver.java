@@ -174,6 +174,7 @@ public final class EntropySolver {
 			if (pattern < 0 || pattern >= PatternService.PATTERN_COUNT) {
 				throw new IllegalArgumentException("Pattern out of range 0..242: " + pattern);
 			}
+			double expectedBits = entropyOf(g, new int[PatternService.PATTERN_COUNT]);
 			int before = candidates.length;
 			int[] kept = new int[before];
 			int k = 0;
@@ -199,7 +200,7 @@ public final class EntropySolver {
 				hardPool = Arrays.copyOf(keptPool, m);
 			}
 
-			Turn turn = new Turn(history.size() + 1, word, pattern, before, candidates.length);
+			Turn turn = new Turn(history.size() + 1, word, pattern, expectedBits, before, candidates.length);
 			history.add(turn);
 			return turn;
 		}

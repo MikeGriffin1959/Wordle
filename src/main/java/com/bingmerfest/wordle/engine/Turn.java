@@ -2,9 +2,12 @@ package com.bingmerfest.wordle.engine;
 
 /**
  * One completed turn: a guess, the feedback pattern it received, and the
- * candidate-set collapse it caused.
+ * candidate-set collapse it caused. {@code expectedBits} is the entropy of
+ * the guess against the candidate set it was played into; {@code bitsGained}
+ * is what the observed feedback actually delivered.
  */
-public record Turn(int turnNumber, String guess, int pattern, int candidatesBefore, int candidatesAfter) {
+public record Turn(int turnNumber, String guess, int pattern, double expectedBits,
+		int candidatesBefore, int candidatesAfter) {
 
 	/** Actual information gained: log2(before/after). NaN if the feedback eliminated everything. */
 	public double bitsGained() {
