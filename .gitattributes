@@ -1,0 +1,4 @@
+# Flyway migrations must keep stable checksums across platforms
+*.sql text eol=lf
+# Word lists are loaded line-by-line; keep them LF too
+*.txt text eol=lf
